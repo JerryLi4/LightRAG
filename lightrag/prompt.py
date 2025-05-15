@@ -354,3 +354,5 @@ Similarity score criteria:
 0.5: Partially related and answer needs modification to be used
 Return only a number between 0-1, without any additional content.
 """
+
+PROMPTS["DISABLE_QWEN_THINK"] = "/nothink "

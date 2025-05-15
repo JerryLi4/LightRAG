@@ -256,6 +256,12 @@ class LightRAG:
             "language": get_env_value("SUMMARY_LANGUAGE", "English", str)
         }
     )
+    """
+        Additional parameters for extensions.
+            - `language`: Language for summarization. Defaults to "English".
+            - `entity_types`: List of entity types to extract. Defaults to ["PERSON", "ORG", "GPE"].
+            - `disable_qwen_thinking`: If True, disables Qwen thinking. Defaults to False.
+    """
 
     # Storages Management
     # ---

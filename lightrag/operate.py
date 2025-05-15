@@ -1076,6 +1076,11 @@ async def extract_keywords_only(
     kw_prompt = PROMPTS["keywords_extraction"].format(
         query=text, examples=examples, language=language, history=history_context
     )
+    disable_qwen_thinking = global_config["addon_params"].get(
+        "disable_qwen_thinking", False
+    )
+    if disable_qwen_thinking:
+        kw_prompt = PROMPTS["DISABLE_QWEN_THINK"] + kw_prompt
 
     tokenizer: Tokenizer = global_config["tokenizer"]
     len_of_prompts = len(tokenizer.encode(kw_prompt))
