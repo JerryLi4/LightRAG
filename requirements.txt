@@ -20,3 +20,4 @@ tenacity
 # LLM packages
 tiktoken
 xlsxwriter>=3.1.0
+asyncpg
