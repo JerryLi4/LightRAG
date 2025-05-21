@@ -1314,11 +1314,25 @@ async def _build_query_context(
     if not entities_context and not relations_context:
         return None
 
+    # Execute the user's on_post_process function if provided
+    if query_param.on_post_content_process:
+        entities_context = query_param.on_post_content_process(
+            entities_context
+        )
+        relations_context = query_param.on_post_content_process(
+            relations_context
+        )
+        text_units_context = query_param.on_post_content_process(
+            text_units_context
+        )
+
     # 转换为 JSON 字符串
     entities_str = json.dumps(entities_context, ensure_ascii=False)
     relations_str = json.dumps(relations_context, ensure_ascii=False)
     text_units_str = json.dumps(text_units_context, ensure_ascii=False)
-
+    logger.info(f"Entities len: {len(entities_str)}")
+    logger.info(f"Relations len: {len(relations_str)}")
+    logger.info(f"Text units len: {len(text_units_str)}")
     result = f"""-----Entities(KG)-----
 
 ```json

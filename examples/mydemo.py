@@ -3,6 +3,7 @@ import asyncio
 import inspect
 import logging
 import logging.config
+from typing import Dict, List
 from lightrag import LightRAG, QueryParam
 from lightrag.llm.openai import openai_complete_if_cache, openai_embed
 from lightrag.utils import EmbeddingFunc, logger, set_verbose_debug
@@ -12,9 +13,8 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 # from database import DailyIncContent, get_date_from_url, session
-
+EMBEDDING_URL=os.getenv("EMBEDDING_URL", "http://EMBEDDING_URL:18001")
 WORKING_DIR = "./dickens"
-
 load_dotenv()
 ROOT_DIR = os.environ.get("ROOT_DIR")
 WORKING_DIR = f"{WORKING_DIR}/dickens-pg"
@@ -23,15 +23,6 @@ logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.INFO)
 
 if not os.path.exists(WORKING_DIR):
     os.makedirs(WORKING_DIR)
-
-# AGE
-os.environ["AGE_GRAPH_NAME"] = "11_daily"
-
-os.environ["POSTGRES_HOST"] = "15.1.162.105"
-os.environ["POSTGRES_PORT"] = "5432"
-os.environ["POSTGRES_USER"] = "rag"
-os.environ["POSTGRES_PASSWORD"] = "rag"
-os.environ["POSTGRES_DATABASE"] = "rag"
 
 
 def configure_logging():
@@ -102,16 +93,16 @@ if not os.path.exists(WORKING_DIR):
 
 
 async def llm_model_func(prompt, system_prompt=None, history_messages=[], keyword_extraction=False, **kwargs) -> str:
+    base_url = os.getenv("LLM_URL", "http://LLM_URL:8001/v1")
+    api_key = os.getenv("LLM_API_KEY", "token-abc123")
     return await openai_complete_if_cache(
         # "qwen-plus",
         "Qwen/Qwen3-32B-FP8",
         prompt,
         system_prompt=system_prompt,
         history_messages=history_messages,
-        api_key="token-abc123",
-        base_url="http://LLM_URL:8001/v1",
-        # api_key="TOKEN",
-        # base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        api_key=api_key,
+        base_url=base_url,
         **kwargs,
     )
 
@@ -124,7 +115,7 @@ async def qwen_embedding_func(texts: list[str]) -> np.ndarray:
     return await openai_embed(
         texts=texts,
         model="Alibaba-NLP/gte-Qwen2-7B-instruct",
-        base_url="http://EMBEDDING_URL:18001",
+        base_url=EMBEDDING_URL,
         api_key="TOKEN",
     )
 
@@ -154,7 +145,7 @@ async def print_stream(stream):
             print(chunk, end="", flush=True)
 
 
-async def initialize_rag():
+async def initialize_rag()->LightRAG:
     embedding_dimension = await get_embedding_dim()
     print(f"Detected embedding dimension: {embedding_dimension}")
 
@@ -203,6 +194,19 @@ async def initialize_rag():
     return rag
 
 
+def on_post_content_process(contents: List[Dict]) -> List[Dict]:
+    try:
+        for content in contents:
+            if content.get("file_path", None) is not None:
+                file_paths = content["file_path"].split("<SEP>")
+                if len(file_paths) > 1:
+                    content["file_path"] = file_paths[0]
+                content["file_path"] = file_paths[0]
+    except Exception as e:
+        logger.error(f"Error in on_post_content_process: {e}")
+        return contents
+    return contents
+
 async def main():
     try:
         # Initialize RAG instance
@@ -234,7 +238,7 @@ async def main():
                 # print(f"Inserted {index + 1} items url: {item.source_url} len: {len(page_content)}")
 
         # Perform naive search
-        question = "What is the Integrity at 11? now: 2025 year, 4th month, 15st day"
+        question = "What is the Integrity at HP? now: 2025 year, 4th month, 15st day"
         # question = "Introduce the ceo of 11"
 
         # print("\n=====================")
@@ -256,11 +260,12 @@ async def main():
         resp = await rag.aquery(
             question,
             param=QueryParam(
-                mode="local",
+                mode="hybrid",
                 stream=True,
                 only_need_prompt=False,
-                top_k=10,
-                max_token_for_local_context=1000
+                top_k=40,
+                max_token_for_local_context=2000,
+                on_post_content_process=on_post_content_process,
             ),
         )
         if inspect.isasyncgen(resp):
@@ -274,7 +279,12 @@ async def main():
         print("=====================")
         resp = await rag.aquery(
             question,
-            param=QueryParam(mode="global", stream=True),
+            param=QueryParam(
+                mode="global",
+                stream=True,
+                on_post_content_process=on_post_content_process,
+            ),
+            
         )
         if inspect.isasyncgen(resp):
             await print_stream(resp)
@@ -287,7 +297,12 @@ async def main():
         print("=====================")
         resp = await rag.aquery(
             question,
-            param=QueryParam(mode="hybrid", stream=True, only_need_context=False),
+            param=QueryParam(
+                mode="hybrid", 
+                stream=True, 
+                only_need_context=False,
+                on_post_content_process=on_post_content_process,
+            ),
         )
         if inspect.isasyncgen(resp):
             await print_stream(resp)

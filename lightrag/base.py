@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from dataclasses import dataclass, field
 from typing import (
     Any,
+    Dict,
+    List,
     Literal,
     TypedDict,
     TypeVar,
@@ -96,6 +98,21 @@ class QueryParam:
     user_prompt: str | None = None
     """User-provided prompt for the query.
     If proivded, this will be use instead of the default vaulue from prompt template.
+    """
+
+    on_post_content_process: Callable[[List[Dict]], List[Dict]] = None
+    """Optional callback function to process the context after retrieval.
+    Input: List of context items.
+        {
+            'id': 2,
+            'entity': '',
+            'type': 'Tips',
+            'description': ",
+            'rank': 10,
+            'created_at': '2025-05-12 18:59:07',
+            'file_path': 'path1<SEP>path2',
+        }
+    Output: List of processed context items.
     """
 
 
