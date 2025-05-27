@@ -886,8 +886,11 @@ async def kg_query(
     if cached_response is not None:
         return cached_response
 
+    retrieve_query = query
+    if query_param.on_preprocess_query is not None:
+        retrieve_query = query_param.on_preprocess_query(query)
     hl_keywords, ll_keywords = await get_keywords_from_query(
-        query, query_param, global_config, hashing_kv
+        retrieve_query, query_param, global_config, hashing_kv
     )
 
     logger.debug(f"High-level keywords: {hl_keywords}")
@@ -1045,9 +1048,10 @@ async def extract_keywords_only(
     if cached_response is not None:
         try:
             keywords_data = json.loads(cached_response)
-            return keywords_data["high_level_keywords"], keywords_data[
-                "low_level_keywords"
-            ]
+            return (
+                keywords_data["high_level_keywords"],
+                keywords_data["low_level_keywords"],
+            )
         except (json.JSONDecodeError, KeyError):
             logger.warning(
                 "Invalid cache format for keywords, proceeding with extraction"
@@ -1316,15 +1320,9 @@ async def _build_query_context(
 
     # Execute the user's on_post_process function if provided
     if query_param.on_post_content_process:
-        entities_context = query_param.on_post_content_process(
-            entities_context
-        )
-        relations_context = query_param.on_post_content_process(
-            relations_context
-        )
-        text_units_context = query_param.on_post_content_process(
-            text_units_context
-        )
+        entities_context = query_param.on_post_content_process(entities_context)
+        relations_context = query_param.on_post_content_process(relations_context)
+        text_units_context = query_param.on_post_content_process(text_units_context)
 
     # 转换为 JSON 字符串
     entities_str = json.dumps(entities_context, ensure_ascii=False)
@@ -1932,15 +1930,23 @@ async def naive_query(
         return cached_response
 
     tokenizer: Tokenizer = global_config["tokenizer"]
+    retrieve_query = query
+    if query_param.on_preprocess_query is not None:
+        retrieve_query = query_param.on_preprocess_query(query)
 
     _, _, text_units_context = await _get_vector_context(
-        query, chunks_vdb, query_param, tokenizer
+        retrieve_query, chunks_vdb, query_param, tokenizer
     )
+    # _, _, text_units_context = await _get_vector_context(
+    #     query, chunks_vdb, query_param, tokenizer
+    # )
 
     if text_units_context is None or len(text_units_context) == 0:
         return PROMPTS["fail_response"]
-
+    if query_param.on_post_content_process:
+        text_units_context = query_param.on_post_content_process(text_units_context)
     text_units_str = json.dumps(text_units_context, ensure_ascii=False)
+
     if query_param.only_need_context:
         return f"""
 ---Document Chunks---

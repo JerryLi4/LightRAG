@@ -115,6 +115,11 @@ class QueryParam:
     Output: List of processed context items.
     """
 
+    on_preprocess_query: Callable[[str], str] = None
+    """Optional callback function to preprocess the query before information retrieval.
+    This process just for retrieval, not for the llm inference.
+    """
+
 
 @dataclass
 class StorageNameSpace(ABC):
