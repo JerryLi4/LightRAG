@@ -917,7 +917,7 @@ async def kg_query(
     hl_keywords_str = ", ".join(hl_keywords) if hl_keywords else ""
 
     # Build context
-    context = await _build_query_context(
+    context , entities_context, relations_context, text_units_context = await _build_query_context(
         ll_keywords_str,
         hl_keywords_str,
         knowledge_graph_inst,
@@ -929,7 +929,7 @@ async def kg_query(
     )
 
     if query_param.only_need_context:
-        return context
+        return context, entities_context, relations_context, text_units_context
     if context is None:
         return PROMPTS["fail_response"]
 
@@ -1320,9 +1320,14 @@ async def _build_query_context(
 
     # Execute the user's on_post_process function if provided
     if query_param.on_post_content_process:
-        entities_context = query_param.on_post_content_process(entities_context)
-        relations_context = query_param.on_post_content_process(relations_context)
-        text_units_context = query_param.on_post_content_process(text_units_context)
+        entities_context, relations_context, text_units_context = query_param.on_post_content_process(
+            entities_context,
+            relations_context,
+            text_units_context,
+        )
+        # entities_context = query_param.on_post_content_process(entities_context, data_type"")
+        # relations_context = query_param.on_post_content_process(relations_context)
+        # text_units_context = query_param.on_post_content_process(text_units_context)
 
     # 转换为 JSON 字符串
     entities_str = json.dumps(entities_context, ensure_ascii=False)
@@ -1350,7 +1355,7 @@ async def _build_query_context(
 ```
 
 """
-    return result
+    return result, entities_context, relations_context, text_units_context
 
 
 async def _get_node_data(
